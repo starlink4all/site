@@ -250,7 +250,7 @@ function renderHelpers(helpers) {
 
         // Qual Section
         const qualSection = helper.qualifications 
-            ? `<hr><h6 class="card-subtitle mb-2 text-muted">Qualifications</h6><p class="card-text">${escapeHtml(helper.qualifications)}</p>` 
+            ? `<hr><h6 class="card-subtitle mb-2 text-muted">Qualification</h6><p class="card-text">${escapeHtml(helper.qualifications)}</p>` 
             : '';
 
         const card = document.createElement('div');
