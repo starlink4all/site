@@ -340,7 +340,7 @@ function renderHelpers(helpers) {
                     <p class="card-text">${escapeHtml(localizeCurrency(helper.package))}</p>
                 </div>
                 <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
-                   <small class="text-muted">Posted: ${new Date(helper.timestamp).toLocaleDateString()}</small>
+                   <small class="text-muted">Posted: ${new Date(helper.created_at || helper.timestamp).toLocaleDateString()}</small>
                    <small class="text-muted" id="views-${helper.id}"><i class="fas fa-eye"></i> ${helper.clicks || 0} views</small>
                 </div>
             </div>
