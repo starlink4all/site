@@ -242,8 +242,7 @@ function renderHelpers(helpers) {
             : '';
 
         // Edit Button Logic (Supabase Version)
-        // We check if the record's secret matches our local secret
-        const mySecret = appStorage.getPublicKey(); // storage.js returns secret for this method now
+        const mySecret = appStorage.getPublicKey();
         const isMine = helper.owner_secret === mySecret;
         
         const editBtn = isMine 

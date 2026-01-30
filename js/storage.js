@@ -16,10 +16,6 @@ class AppStorage {
     constructor() {
         this.client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         this.identity = this.loadIdentity();
-        // Warn if key looks suspicious (too short), but try anyway
-        if (SUPABASE_ANON_KEY.length < 50) {
-             console.warn("Supabase Key looks unusual. Ensure it is the 'anon public' key starting with 'eyJ...'.");
-        }
     }
 
     // --- Identity ---
