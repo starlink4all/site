@@ -311,11 +311,11 @@ window.revealContact = (btn, helperId, collapseId) => {
     // 3. Increment View Count in UI immediately
     const viewEl = document.getElementById(`views-${helperId}`);
     if (viewEl) {
-        // extract current count or just wait for refresh? 
-        // Better to visually increment to show feedback
-        // But the text is "X views". Regex parse or just leave it for next reload?
-        // Let's leave it for next reload/refresh to keep it simple, OR fetch update.
-        // Actually, let's just fire and forget the recordClick.
+        // extract current count text (e.g. "12 views")
+        let text = viewEl.innerText;
+        let count = parseInt(text) || 0;
+        count++;
+        viewEl.innerHTML = `<i class="fas fa-eye"></i> ${count} views`;
     }
 
     // 4. Record the click in backend

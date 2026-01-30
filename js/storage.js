@@ -1,34 +1,71 @@
 /**
  * Storage Adapter for Starlink4All
- * Supports: LocalStorage (Fallback), Pantry.cloud (Free JSON Storage)
+ * Backend: Gun.js (Decentralized, Offline-First, Real-time Graph DB)
+ * 
+ * Why Gun?
+ * - No central server (Serverless)
+ * - Democratized data (P2P syncing)
+ * - Works offline (LocalStorage) and syncs when online
  */
-
-const STORAGE_CONFIG = {
-    // Replace this with your own Pantry ID from pantry.cloud to go live!
-    pantryId: '63383020-5c6a-48a6-89c0-639145695273', 
-    basketName: 'starlink4all_helpers',
-    expirationDays: 30
-};
 
 class AppStorage {
     constructor() {
-        this.useCloud = true;
-        this.helpers = [];
+        this.helpers = new Map();
+        this.isOffline = true; // Assume offline until peer connection
         this.identity = this.loadIdentity();
-        this.isOffline = false;
+        this.initGun();
     }
 
-    // --- Identity & Keys (Light Public/Private Key) ---
+    initGun() {
+        // We use a few public relay peers to help bootstrap the connection
+        const peers = [
+            'https://gun-manhattan.herokuapp.com/gun',
+            'https://gun-us.herokuapp.com/gun',
+            'https://gun-eu.herokuapp.com/gun' 
+        ];
+
+        this.gun = Gun({
+            peers: peers,
+            localStorage: true
+        });
+
+        this.db = this.gun.get('starlink4all_community_v1');
+
+        // Real-time listener
+        // 'map()' iterates over every item in the list
+        this.db.map().on((data, id) => {
+            if (data) {
+                // Basic validation
+                if (data.name && data.lat && data.lng) {
+                     this.helpers.set(id, data);
+                }
+            } else {
+                this.helpers.delete(id); // Null means deleted
+            }
+        });
+        
+        // Monitor connection status (rudimentary check via peers)
+        // Gun doesn't have a simple "onConnection" event, but we can assume 
+        // if we are getting data, we are good.
+        // For the UI, we'll just hide the offline warning after a short timeout 
+        // if we have data, or if we detect network.
+        setTimeout(() => this.checkSyncStatus(), 2000);
+    }
+
+    checkSyncStatus() {
+        // If we have loaded data, or navigator is online, we assume we are "good enough"
+        // for this decentralized demo.
+        const connected = navigator.onLine; 
+        this.notifyOfflineStatus(!connected);
+    }
+
+    // --- Identity ---
     loadIdentity() {
         let secret = localStorage.getItem('starlink_secret_key');
         if (!secret) {
             secret = crypto.randomUUID();
             localStorage.setItem('starlink_secret_key', secret);
         }
-        
-        // Simple "Public Key" is a hash of the secret
-        // In a real app, use WebCrypto API for actual keys.
-        // Here, we just use a derived string to identify ownership.
         return {
             secret: secret,
             publicKey: this.simpleHash(secret)
@@ -52,146 +89,77 @@ class AppStorage {
     // --- Data Operations ---
 
     async getHelpers() {
-        // Always try cloud first
-        if (this.useCloud) {
-            try {
-                const data = await this.fetchFromPantry();
-                this.isOffline = false;
-                
-                // Filter expired entries
-                const now = Date.now();
-                const validHelpers = (data.helpers || []).filter(h => {
-                    const age = now - (h.timestamp || 0);
-                    const maxAge = STORAGE_CONFIG.expirationDays * 24 * 60 * 60 * 1000;
-                    return age < maxAge;
-                });
-
-                this.helpers = validHelpers;
-                this.notifyOfflineStatus(false);
-            } catch (e) {
-                console.warn("Cloud storage unreachable, falling back to local demo data.", e);
-                this.isOffline = true;
-                this.notifyOfflineStatus(true);
-                this.helpers = this.getLocalHelpers();
-            }
-        } else {
-            this.helpers = this.getLocalHelpers();
+        // In Gun, data flows in asynchronously.
+        // If the map is empty, we wait a bit to let the network sync.
+        if (this.helpers.size === 0) {
+            await new Promise(resolve => setTimeout(resolve, 1500));
         }
-        return this.helpers;
+        
+        // Filter expired entries (client-side)
+        const now = Date.now();
+        const expirationMs = 30 * 24 * 60 * 60 * 1000; // 30 Days
+
+        const list = Array.from(this.helpers.values()).filter(h => {
+            if (!h.timestamp) return false;
+            return (now - h.timestamp) < expirationMs;
+        });
+
+        return list;
     }
 
     async saveHelper(helper, index = -1) {
-        // 1. Prepare the Helper Object
-        if (index === -1) {
-            // New Entry
-            helper.timestamp = Date.now();
-            helper.publicKey = this.identity.publicKey; // Ownership claim
-            helper.clicks = 0;
-            helper.id = crypto.randomUUID();
-        } else {
-            // Update Existing: Preserve non-editable fields
-            const existing = this.helpers[index];
-            helper.timestamp = Date.now(); // Renew expiration
-            helper.publicKey = existing.publicKey;
-            helper.clicks = existing.clicks;
-            helper.id = existing.id;
-        }
+        try {
+            const id = (index !== -1 && helper.id) ? helper.id : crypto.randomUUID();
+            
+            // Prepare object
+            const entry = {
+                id: id,
+                name: helper.name,
+                qualifications: helper.qualifications || "",
+                contact: helper.contact,
+                package: helper.package || "",
+                lat: helper.lat,
+                lng: helper.lng,
+                timestamp: Date.now(),
+                publicKey: this.identity.publicKey,
+                clicks: helper.clicks || 0
+            };
 
-        // 2. Save Locally (Backup)
-        let localHelpers = this.getLocalHelpers();
-        if (index === -1) {
-            localHelpers.push(helper);
-        } else {
-            // Find local match by ID if possible, else index might differ
-            // For simplicity in this demo, we append or replace logic needs to be robust
-            // We will just sync local with the latest state after cloud op
+            // Save to Gun (put)
+            // We use the ID as the key in the set
+            this.db.get(id).put(entry);
+            
+            // Optimistic update for local UI
+            this.helpers.set(id, entry);
+            
+            return true;
+        } catch (e) {
+            console.error("GunDB Save Error:", e);
+            return false;
         }
-        localStorage.setItem('starlink_helpers', JSON.stringify(localHelpers));
-
-        // 3. Save to Cloud
-        if (this.useCloud) {
-            try {
-                // Optimistic Locking strategy: Fetch latest, modify, save.
-                const currentData = await this.fetchFromPantry();
-                let currentList = currentData.helpers || [];
-
-                if (index === -1) {
-                    currentList.push(helper);
-                } else {
-                    // Find by ID to ensure we edit the right one in the cloud list
-                    const cloudIndex = currentList.findIndex(h => h.id === helper.id);
-                    if (cloudIndex !== -1) {
-                        // verify ownership
-                        if (currentList[cloudIndex].publicKey === this.identity.publicKey) {
-                             currentList[cloudIndex] = helper;
-                        } else {
-                             throw new Error("Ownership mismatch");
-                        }
-                    }
-                }
-                
-                await this.saveToPantry({ helpers: currentList });
-                this.helpers = currentList; // Update local state
-                return true;
-            } catch (e) {
-                console.error("Failed to save to cloud", e);
-                this.notifyOfflineStatus(true);
-                return false;
-            }
-        }
-        return true;
     }
 
     async incrementClick(helperId) {
-        if (!this.useCloud) return;
-
-        try {
-            const currentData = await this.fetchFromPantry();
-            let currentList = currentData.helpers || [];
-            
-            const item = currentList.find(h => h.id === helperId);
-            if (item) {
-                item.clicks = (item.clicks || 0) + 1;
-                await this.saveToPantry({ helpers: currentList });
-                console.log(`Recorded click for ${helperId}`);
-            }
-        } catch (e) {
-            console.warn("Could not record click (offline)", e);
+        // Fetch current, increment, save.
+        // Gun supports atomic operations but for simplicity we read-modify-write
+        // effectively via the local cache which is synced.
+        const item = this.helpers.get(helperId);
+        if (item) {
+            const newCount = (item.clicks || 0) + 1;
+            this.db.get(helperId).get('clicks').put(newCount);
         }
     }
 
     notifyOfflineStatus(isOffline) {
         const alertBox = document.getElementById('offlineAlert');
         if (alertBox) {
-            if (isOffline) alertBox.classList.remove('d-none');
-            else alertBox.classList.add('d-none');
+            if (isOffline) {
+                alertBox.classList.remove('d-none');
+                alertBox.innerHTML = `<strong>Note:</strong> You are offline. Data is saved locally and will sync to the community when you reconnect.`;
+            } else {
+                alertBox.classList.add('d-none');
+            }
         }
-    }
-
-    // --- Pantry.cloud Implementation ---
-    async fetchFromPantry() {
-        const url = `https://getpantry.cloud/apiv1/pantry/${STORAGE_CONFIG.pantryId}/basket/${STORAGE_CONFIG.basketName}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Pantry fetch failed');
-        return await response.json();
-    }
-
-    async saveToPantry(data) {
-        const url = `https://getpantry.cloud/apiv1/pantry/${STORAGE_CONFIG.pantryId}/basket/${STORAGE_CONFIG.basketName}`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        if (!response.ok) throw new Error('Pantry save failed');
-        return await response.json();
-    }
-
-    // --- Local / Mock Data ---
-    getLocalHelpers() {
-        const stored = localStorage.getItem('starlink_helpers');
-        if (stored) return JSON.parse(stored);
-        return [];
     }
 }
 
