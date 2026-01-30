@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentUserLocation = null;
 let currencySymbol = '$';
 let exchangeRate = 1;
+let standardMonthlyCost = 120; 
+let standardEquipCost = 599;
 
 async function initApp() {
     await detectRegionAndPricing();
@@ -40,12 +42,11 @@ async function detectRegionAndPricing() {
     }
 }
 
-let standardMonthlyCost = 120; // Default
-
 function setCurrency(symbol, monthly, equip, rate = 1) {
     currencySymbol = symbol;
     exchangeRate = rate;
     standardMonthlyCost = monthly;
+    standardEquipCost = equip;
     
     // Update Inputs
     document.getElementById('monthlyCost').value = monthly;
@@ -59,49 +60,48 @@ function handleCardClick(event, text) {
     // Ignore clicks on buttons/links
     if (event.target.closest('button') || event.target.closest('a')) return;
 
-    // 1. Parse price from text (e.g. $20, R300, 20)
-    // We look for numbers. If currency symbol matches, great.
-    // Simple regex for first number found
+    // 1. Parse price
     const match = text.match(/(\d+(?:\.\d+)?)/);
     if (!match) return;
     
     let amount = parseFloat(match[1]);
     
-    // If text had '$' but we are in 'R' mode, we need to convert the found amount?
-    // `localizeCurrency` converts the DISPLAY text.
-    // But the `text` passed here is the RAW text (from helper.package).
-    // If raw text says "$10" and we are in ZA (Rate 18):
-    // We want to add R180 to the base R900.
-    
-    // Check if raw text contains '$'
+    // Convert if needed
     if (text.includes('$') && exchangeRate !== 1) {
         amount = amount * exchangeRate;
     }
 
-    // 2. Update Calculator
+    // 2. Update Calculator (Equipment Cost)
     // New Total = Standard Base + Helper Fee
-    const newTotal = standardMonthlyCost + amount;
+    const newTotal = standardEquipCost + amount;
     
-    const input = document.getElementById('monthlyCost');
+    const input = document.getElementById('equipCost');
     input.value = newTotal.toFixed(2);
     
     // 3. Trigger Recalc
     calculateCost();
     
-    // 4. Feedback (Highlight Calculator)
+    // 4. Feedback
     const calcSection = document.getElementById('calculator');
     calcSection.scrollIntoView({ behavior: 'smooth' });
-    input.classList.add('bg-warning'); // Flash effect
+    input.classList.add('bg-warning'); 
     setTimeout(() => input.classList.remove('bg-warning'), 500);
 }
 
 function localizeCurrency(text) {
     if (!text) return "";
-    if (exchangeRate === 1) return text;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+    
+    // Linkify First
+    let processed = text
+        .replace(urlRegex, '<a href="$1" target="_blank">$1</a>')
+        .replace(emailRegex, '<a href="mailto:$1">$1</a>');
 
-    // Regex to match $ followed by number (e.g. $5, $10.50)
-    // allowing optional space between $ and number
-    return text.replace(/\$\s?(\d+(?:\.\d+)?)/g, (match, amount) => {
+    if (exchangeRate === 1) return processed;
+
+    // Then Currency Convert
+    return processed.replace(/\$\s?(\d+(?:\.\d+)?)/g, (match, amount) => {
         const val = parseFloat(amount);
         const converted = Math.round(val * exchangeRate);
         return `${currencySymbol}${converted}`;
@@ -149,18 +149,6 @@ function setupEventListeners() {
 
     // Modal - Save
     document.getElementById('saveHelperBtn').addEventListener('click', handleSaveHelper);
-
-    // Modal - Reset on Open
-    const joinModal = document.getElementById('joinModal');
-    joinModal.addEventListener('show.bs.modal', (event) => {
-        // Only reset if we are NOT clicking an "Edit" button
-        if (!event.relatedTarget || !event.relatedTarget.dataset.edit) {
-             document.getElementById('helperForm').reset();
-             document.getElementById('editId').value = "";
-             document.getElementById('saveHelperBtn').innerText = "Post My Offer";
-             document.querySelector('#joinModal .modal-title').innerText = "I Can Help / Share";
-        }
-    });
 
     // Locate Me (Main Page)
     document.getElementById('locateMeBtn').addEventListener('click', () => {
@@ -333,12 +321,11 @@ function renderHelpers(helpers) {
             ? `<span class="distance-badge"><i class="fas fa-map-marker-alt"></i> ${helper.distance.toFixed(1)} km</span>` 
             : '';
 
-        // Edit Button Logic (Supabase Version)
-        const mySecret = appStorage.getPublicKey();
+        // Edit Button Logic
         const isMine = helper.owner_secret === mySecret;
         
         const editBtn = isMine 
-            ? `<button class="btn btn-sm btn-outline-secondary ms-auto" onclick="openEditModal('${helper.id}')"><i class="fas fa-edit"></i> Edit</button>`
+            ? `<button class="btn btn-sm btn-outline-secondary ms-auto" onclick="event.stopPropagation(); openEditModal('${helper.id}')"><i class="fas fa-edit"></i> Edit</button>`
             : '';
 
         // Unique ID for this card's collapse
@@ -364,9 +351,8 @@ function renderHelpers(helpers) {
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Contact</h6>
                     
-                    <!-- Fold-out Contact Logic -->
                     <button class="btn btn-sm btn-primary w-100 mb-2" 
-                            onclick="revealContact(this, '${helper.id}', '${collapseId}')">
+                            onclick="event.stopPropagation(); revealContact(this, '${helper.id}', '${collapseId}')">
                         <i class="fas fa-eye me-1"></i> Show Contact Info
                     </button>
                     
@@ -392,33 +378,34 @@ function renderHelpers(helpers) {
     });
 }
 
-// Expose to window for inline onclicks
 window.revealContact = (btn, helperId, collapseId) => {
-    // 1. Hide the button
     btn.classList.add('d-none');
-    
-    // 2. Show the contact info
     const content = document.getElementById(collapseId);
-    if (content) {
-        content.classList.remove('d-none');
-    }
-
-    // 3. Increment View Count in UI immediately
+    if (content) content.classList.remove('d-none');
+    
     const viewEl = document.getElementById(`views-${helperId}`);
     if (viewEl) {
-        // extract current count text (e.g. "12 views")
         let text = viewEl.innerText;
         let count = parseInt(text) || 0;
         count++;
         viewEl.innerHTML = `<i class="fas fa-eye"></i> ${count} views`;
     }
-
-    // 4. Record the click in backend
     appStorage.incrementClick(helperId);
 };
 
 window.recordClick = (id) => {
     appStorage.incrementClick(id);
+};
+
+// New Function for "I Can Help" button
+window.openJoinModal = () => {
+    document.getElementById('helperForm').reset();
+    document.getElementById('editId').value = "";
+    document.getElementById('saveHelperBtn').innerText = "Post My Offer";
+    document.querySelector('#joinModal .modal-title').innerText = "I Can Help / Share";
+    
+    const modal = new bootstrap.Modal(document.getElementById('joinModal'));
+    modal.show();
 };
 
 window.openEditModal = async (id) => {
@@ -439,16 +426,10 @@ window.openEditModal = async (id) => {
     document.getElementById('helperLatLong').value = `${helper.lat}, ${helper.lng}`;
     document.getElementById('editId').value = id;
 
-    // Change Modal Title/Btn
     document.getElementById('saveHelperBtn').innerText = "Update Offer";
     document.querySelector('#joinModal .modal-title').innerText = "Edit My Offer";
 
-    // Show Modal
-    const modalEl = document.getElementById('joinModal');
-    // Set the dataset BEFORE showing, so the 'show.bs.modal' listener knows to skip reset
-    modalEl.dataset.edit = "true";
-    
-    const modal = new bootstrap.Modal(modalEl);
+    const modal = new bootstrap.Modal(document.getElementById('joinModal'));
     modal.show();
 };
 
@@ -518,7 +499,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const a = 
         Math.sin(dLat/2) * Math.sin(dLat/2) +
         Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-        Math.sin(dLon/2) * Math.sin(dLon/2); 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
     return R * c;
 }
@@ -529,7 +510,7 @@ function deg2rad(deg) {
 
 function escapeHtml(text) {
     if (!text) return "";
-    return text.replace(/[&<>"]/g, function(m) {
+    return text.replace(/[&<>"']/g, function(m) {
         return {
             '&': '&amp;',
             '<': '&lt;',
