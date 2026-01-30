@@ -230,7 +230,23 @@ function renderHelpers(helpers) {
     const myPubKey = appStorage.getPublicKey();
 
     if (helpers.length === 0) {
-        container.innerHTML = `<div class="col-12 text-center text-muted">No helpers found yet. Be the first!</div>`;
+        // Check if we are disconnected vs just empty list
+        // Note: appStorage.isConnected is set in storage.js
+        const isOffline = !appStorage.isConnected && appStorage.helpers.size === 0;
+        
+        if (isOffline) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="fas fa-wifi fa-3x mb-3 text-warning"></i>
+                    <h4>Looks like our network is unreachable</h4>
+                    <p>We couldn't connect to the community relays.</p>
+                    <a href="https://www.google.com/search?q=starlink+availability+map" target="_blank" class="btn btn-outline-primary mt-2">
+                        <i class="fab fa-google"></i> Search for Starlink Availability
+                    </a>
+                </div>`;
+        } else {
+            container.innerHTML = `<div class="col-12 text-center text-muted">No helpers found yet. Be the first!</div>`;
+        }
         return;
     }
 

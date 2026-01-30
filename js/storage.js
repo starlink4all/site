@@ -17,16 +17,35 @@ class AppStorage {
     }
 
     initGun() {
-        // We use a few public relay peers to help bootstrap the connection
+        console.log("Starlink4All Storage v1.2 Loading...");
+        // Updated peers list: Removing flaky Heroku nodes, adding more community ones.
         const peers = [
-            'https://gun-manhattan.herokuapp.com/gun',
-            'https://gun-us.herokuapp.com/gun',
-            'https://gun-eu.herokuapp.com/gun' 
+            'https://peer.wallie.io/gun',
+            'https://plato.design/gun',
+            'https://gun.eco/gun',
+            'https://gun-rs.herokuapp.com/gun',
+            'https://gundb-relay.glitch.me/gun'
         ];
 
         this.gun = Gun({
             peers: peers,
-            localStorage: true
+            localStorage: true,
+            retry: 3000 // Retry every 3s
+        });
+        
+        this.isConnected = false;
+        
+        // Listen for successful peer connection
+        this.gun.on('hi', () => {
+            this.isConnected = true;
+            this.notifyOfflineStatus(false);
+            console.log("Connected to GunDB Relay!");
+        });
+        
+        // Listen for disconnection (bye)
+        this.gun.on('bye', () => {
+             this.isConnected = false;
+             // Don't immediately alert, as we might just be switching peers
         });
 
         this.db = this.gun.get('starlink4all_community_v1');
@@ -44,32 +63,38 @@ class AppStorage {
             }
         });
         
-        // Monitor connection status (rudimentary check via peers)
-        // Gun doesn't have a simple "onConnection" event, but we can assume 
-        // if we are getting data, we are good.
-        // For the UI, we'll just hide the offline warning after a short timeout 
-        // if we have data, or if we detect network.
-        setTimeout(() => this.checkSyncStatus(), 2000);
+        // Initial sync check
+        setTimeout(() => this.checkSyncStatus(), 2500);
     }
 
     checkSyncStatus() {
-        // If we have loaded data, or navigator is online, we assume we are "good enough"
-        // for this decentralized demo.
-        const connected = navigator.onLine; 
-        this.notifyOfflineStatus(!connected);
+        // If we have 0 helpers and not connected, warn user
+        const healthy = this.isConnected || this.helpers.size > 0;
+        this.notifyOfflineStatus(!healthy);
     }
 
     // --- Identity ---
     loadIdentity() {
         let secret = localStorage.getItem('starlink_secret_key');
         if (!secret) {
-            secret = crypto.randomUUID();
+            secret = this.generateUUID();
             localStorage.setItem('starlink_secret_key', secret);
         }
         return {
             secret: secret,
             publicKey: this.simpleHash(secret)
         };
+    }
+
+    generateUUID() {
+        // Native secure UUID or fallback for HTTP/Old Browsers
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     simpleHash(str) {
@@ -109,7 +134,7 @@ class AppStorage {
 
     async saveHelper(helper, id = null) {
         try {
-            const entryId = id || crypto.randomUUID();
+            const entryId = id || this.generateUUID();
             
             // Prepare object
             const entry = {
