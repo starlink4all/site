@@ -110,7 +110,7 @@ function localizeCurrency(text) {
 
 function setupEventListeners() {
     // Calculator
-    const calcInputs = ['monthlyCost', 'numUsers', 'equipCost', 'totalSpeed'];
+    const calcInputs = ['monthlyCost', 'numUsers', 'equipCost', 'totalSpeed', 'timeframe'];
     calcInputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', calculateCost);
@@ -216,6 +216,26 @@ function calculateCost() {
     
     const speedRes = document.getElementById('speedResult');
     if(speedRes) speedRes.innerText = speedText;
+
+    // --- Timeframe Analysis ---
+    const years = parseFloat(document.getElementById('timeframe').value) || 5;
+    document.getElementById('timeframeDisplay').innerText = `${years} Years`;
+
+    const months = years * 12;
+    // Total System Cost over period
+    const totalSystemCost = (monthlyCost * months) + equipCost;
+    
+    // Per Home Total
+    const totalPerHome = totalSystemCost / users;
+    
+    // Amortized Monthly (Total / months)
+    const amortizedMonthly = totalPerHome / months;
+
+    const totalEl = document.getElementById('totalResult');
+    if (totalEl) totalEl.innerText = `${currencySymbol}${totalPerHome.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+
+    const avgMonthlyEl = document.getElementById('avgMonthlyResult');
+    if (avgMonthlyEl) avgMonthlyEl.innerText = `${currencySymbol}${amortizedMonthly.toFixed(2)}`;
 }
 
 // --- Geolocation ---

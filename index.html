@@ -103,14 +103,14 @@
                                     <input type="number" class="form-control" id="totalSpeed" value="200">
                                 </div>
                                 <div class="col-12">
-                                    <label for="numUsers" class="form-label">Number of People/Households Sharing: <span id="numUsersDisplay" class="fw-bold text-primary">4</span></label>
+                                    <label for="numUsers" class="form-label">Number of People/Homes Sharing: <span id="numUsersDisplay" class="fw-bold text-primary">4</span></label>
                                     <input type="range" class="form-range" id="numUsers" min="1" max="20" value="4">
                                 </div>
                             </div>
                             <hr>
                             <div class="row text-center">
                                 <div class="col-md-3 mb-3 mb-md-0">
-                                    <h5 class="text-muted small mb-1">Monthly / Person</h5>
+                                    <h5 class="text-muted small mb-1">Monthly Cost / Home</h5>
                                     <h3 class="text-success fw-bold" id="monthlyResult">$30.00</h3>
                                 </div>
                                 <div class="col-md-3 mb-3 mb-md-0">
@@ -127,7 +127,29 @@
                                 </div>
                             </div>
                             <div class="text-center mt-3">
-                                <p class="text-muted small mb-0">Speed varies based on usage. Min = All users downloading. Max = Others idle.</p>
+                                <p class="text-muted small mb-0">Speed varies based on usage. Min = All users downloading.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Long Term Analysis Card -->
+                <div class="col-lg-8 mt-4">
+                    <div class="card shadow-sm border-0 bg-white">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="timeframe" class="form-label text-muted fw-bold small text-uppercase">Long Term Outlook: <span id="timeframeDisplay" class="text-primary">5 Years</span></label>
+                                <input type="range" class="form-range" id="timeframe" min="1" max="10" value="5">
+                            </div>
+                            <div class="row text-center align-items-center">
+                                <div class="col-6 border-end">
+                                    <h5 class="text-muted small mb-1">Amortized Monthly / Home</h5>
+                                    <h3 class="text-success fw-bold" id="avgMonthlyResult">$40.00</h3>
+                                </div>
+                                <div class="col-6">
+                                    <h5 class="text-muted small mb-1">Total Cost / Home</h5>
+                                    <h3 class="text-dark fw-bold" id="totalResult">$2,399</h3>
+                                </div>
                             </div>
                         </div>
                     </div>
