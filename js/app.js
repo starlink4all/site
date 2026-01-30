@@ -235,8 +235,6 @@ function renderHelpers(helpers) {
     }
 
     helpers.forEach((helper, index) => {
-
-    helpers.forEach((helper, index) => {
         const distStr = helper.distance !== undefined 
             ? `<span class="distance-badge"><i class="fas fa-map-marker-alt"></i> ${helper.distance.toFixed(1)} km</span>` 
             : '';
