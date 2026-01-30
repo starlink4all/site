@@ -5,13 +5,64 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let currentUserLocation = null;
+let currencySymbol = '$';
+let exchangeRate = 1;
 
 async function initApp() {
+    await detectRegionAndPricing();
     loadCalculator();
     setupEventListeners();
     
     // Initial load
     refreshHelpersList();
+}
+
+async function detectRegionAndPricing() {
+    try {
+        // 1. Try Timezone heuristic
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (tz && tz.startsWith('Africa/')) {
+            setCurrency('R', 900, 3800, 18);
+            return; 
+        }
+
+        // 2. IP Fallback
+        const res = await fetch('https://get.geojs.io/v1/ip/country.json');
+        const data = await res.json();
+        
+        if (data.country === 'ZA') {
+             setCurrency('R', 900, 3800, 18);
+        }
+        // Default remains USD
+        
+    } catch (e) {
+        console.warn("Could not detect region for pricing, using default USD.");
+    }
+}
+
+function setCurrency(symbol, monthly, equip, rate = 1) {
+    currencySymbol = symbol;
+    exchangeRate = rate;
+    
+    // Update Inputs
+    document.getElementById('monthlyCost').value = monthly;
+    document.getElementById('equipCost').value = equip;
+    
+    // Update Labels
+    document.querySelectorAll('.currency-label').forEach(el => el.innerText = symbol);
+}
+
+function localizeCurrency(text) {
+    if (!text) return "";
+    if (exchangeRate === 1) return text;
+
+    // Regex to match $ followed by number (e.g. $5, $10.50)
+    // allowing optional space between $ and number
+    return text.replace(/\$\s?(\d+(?:\.\d+)?)/g, (match, amount) => {
+        const val = parseFloat(amount);
+        const converted = Math.round(val * exchangeRate);
+        return `${currencySymbol}${converted}`;
+    });
 }
 
 function setupEventListeners() {
@@ -114,11 +165,11 @@ function calculateCost() {
 
     // Monthly per person
     const monthlyPerPerson = monthlyCost / users;
-    document.getElementById('monthlyResult').innerText = `$${monthlyPerPerson.toFixed(2)}`;
+    document.getElementById('monthlyResult').innerText = `${currencySymbol}${monthlyPerPerson.toFixed(2)}`;
 
     // Equipment per person
     const equipPerPerson = equipCost / users;
-    document.getElementById('equipResult').innerText = `$${equipPerPerson.toFixed(2)}`;
+    document.getElementById('equipResult').innerText = `${currencySymbol}${equipPerPerson.toFixed(2)}`;
 
     // Savings %
     let savings = 0;
@@ -286,7 +337,7 @@ function renderHelpers(helpers) {
 
                     <hr>
                     <h6 class="card-subtitle mb-2 text-muted">Package / Offer</h6>
-                    <p class="card-text">${escapeHtml(helper.package)}</p>
+                    <p class="card-text">${escapeHtml(localizeCurrency(helper.package))}</p>
                 </div>
                 <div class="card-footer bg-white border-top-0 d-flex justify-content-between align-items-center">
                    <small class="text-muted">Posted: ${new Date(helper.timestamp).toLocaleDateString()}</small>
