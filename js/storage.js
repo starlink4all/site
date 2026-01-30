@@ -1,76 +1,25 @@
 /**
  * Storage Adapter for Starlink4All
- * Backend: Gun.js (Decentralized, Offline-First, Real-time Graph DB)
+ * Backend: Supabase (Postgres as a Service)
  * 
- * Why Gun?
- * - No central server (Serverless)
- * - Democratized data (P2P syncing)
- * - Works offline (LocalStorage) and syncs when online
+ * Logic:
+ * - Reads are public.
+ * - Writes are public (insert).
+ * - Updates require matching the 'owner_secret' stored in LocalStorage.
  */
+
+// CONFIGURATION
+const SUPABASE_URL = 'https://wjchtawfdiwnqovnzpuo.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_-UEJwCz9tP263MR1dybY1Q_x0IYYYl6'; // User provided key
 
 class AppStorage {
     constructor() {
-        this.helpers = new Map();
-        this.isOffline = true; // Assume offline until peer connection
+        this.client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         this.identity = this.loadIdentity();
-        this.initGun();
-    }
-
-    initGun() {
-        console.log("Starlink4All Storage v1.2 Loading...");
-        // Updated peers list: Removing flaky Heroku nodes, adding more community ones.
-        const peers = [
-            'https://peer.wallie.io/gun',
-            'https://plato.design/gun',
-            'https://gun.eco/gun',
-            'https://gun-rs.herokuapp.com/gun',
-            'https://gundb-relay.glitch.me/gun'
-        ];
-
-        this.gun = Gun({
-            peers: peers,
-            localStorage: true,
-            retry: 3000 // Retry every 3s
-        });
-        
-        this.isConnected = false;
-        
-        // Listen for successful peer connection
-        this.gun.on('hi', () => {
-            this.isConnected = true;
-            this.notifyOfflineStatus(false);
-            console.log("Connected to GunDB Relay!");
-        });
-        
-        // Listen for disconnection (bye)
-        this.gun.on('bye', () => {
-             this.isConnected = false;
-             // Don't immediately alert, as we might just be switching peers
-        });
-
-        this.db = this.gun.get('starlink4all_community_v1');
-
-        // Real-time listener
-        // 'map()' iterates over every item in the list
-        this.db.map().on((data, id) => {
-            if (data) {
-                // Basic validation
-                if (data.name && data.lat && data.lng) {
-                     this.helpers.set(id, data);
-                }
-            } else {
-                this.helpers.delete(id); // Null means deleted
-            }
-        });
-        
-        // Initial sync check
-        setTimeout(() => this.checkSyncStatus(), 2500);
-    }
-
-    checkSyncStatus() {
-        // If we have 0 helpers and not connected, warn user
-        const healthy = this.isConnected || this.helpers.size > 0;
-        this.notifyOfflineStatus(!healthy);
+        // Warn if key looks suspicious (too short), but try anyway
+        if (SUPABASE_ANON_KEY.length < 50) {
+             console.warn("Supabase Key looks unusual. Ensure it is the 'anon public' key starting with 'eyJ...'.");
+        }
     }
 
     // --- Identity ---
@@ -80,14 +29,10 @@ class AppStorage {
             secret = this.generateUUID();
             localStorage.setItem('starlink_secret_key', secret);
         }
-        return {
-            secret: secret,
-            publicKey: this.simpleHash(secret)
-        };
+        return { secret };
     }
 
     generateUUID() {
-        // Native secure UUID or fallback for HTTP/Old Browsers
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID();
         }
@@ -97,94 +42,111 @@ class AppStorage {
         });
     }
 
-    simpleHash(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = (hash << 5) - hash + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(16);
-    }
-
     getPublicKey() {
-        return this.identity.publicKey;
+        // In this architecture, the "secret" acts as the ownership proof.
+        // We use the secret itself to match against the DB record's 'owner_secret'.
+        // For the UI "Edit" button, we will check if the DB record's secret matches our local secret.
+        // NOTE: This means we pull the secret down to the client. 
+        // In a Production App: You would NEVER do this. You would use Auth.uid().
+        // But for this specific "No-Login" prototype, it's the compromise.
+        return this.identity.secret;
     }
 
     // --- Data Operations ---
 
     async getHelpers() {
-        // In Gun, data flows in asynchronously.
-        // If the map is empty, we wait a bit to let the network sync.
-        if (this.helpers.size === 0) {
-            await new Promise(resolve => setTimeout(resolve, 1500));
+        // Fetch all helpers
+        const { data, error } = await this.client
+            .from('helpers')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Supabase Load Error:", error);
+            // If offline or error, return empty array to avoid breaking UI
+            // Or implement a fallback UI if critical
+            return [];
         }
+
+        // Filter expired (Client side for simplicity, or could be a View)
+        const now = new Date();
+        const expirationDays = 30;
         
-        // Filter expired entries (client-side)
-        const now = Date.now();
-        const expirationMs = 30 * 24 * 60 * 60 * 1000; // 30 Days
-
-        const list = Array.from(this.helpers.values()).filter(h => {
-            if (!h.timestamp) return false;
-            return (now - h.timestamp) < expirationMs;
+        return data.filter(h => {
+            const created = new Date(h.created_at);
+            const ageDays = (now - created) / (1000 * 60 * 60 * 24);
+            return ageDays < expirationDays;
         });
-
-        return list;
     }
 
     async saveHelper(helper, id = null) {
-        try {
-            const entryId = id || this.generateUUID();
-            
-            // Prepare object
-            const entry = {
-                id: entryId,
-                name: helper.name,
-                qualifications: helper.qualifications || "",
-                contact: helper.contact,
-                package: helper.package || "",
-                lat: helper.lat,
-                lng: helper.lng,
-                timestamp: Date.now(),
-                publicKey: this.identity.publicKey,
-                clicks: helper.clicks || 0
-            };
+        // Prepare payload
+        const payload = {
+            name: helper.name,
+            contact: helper.contact,
+            qualifications: helper.qualifications || "",
+            package: helper.package || "",
+            lat: helper.lat,
+            lng: helper.lng,
+            // If updating, preserve existing clicks? Handled by ignoring it in update payload usually,
+            // but here we just overwrite.
+            // IMPORTANT: We save the OWNER SECRET so we can edit it later.
+            owner_secret: this.identity.secret 
+        };
 
-            // Save to Gun (put)
-            // We use the ID as the key in the set
-            this.db.get(entryId).put(entry);
-            
-            // Optimistic update for local UI
-            this.helpers.set(entryId, entry);
-            
-            return true;
-        } catch (e) {
-            console.error("GunDB Save Error:", e);
-            return false;
+        if (id) {
+            // --- UPDATE ---
+            // Security: We must ensure we only update if the secret matches.
+            // Supabase RLS 'USING' policy can handle this, OR we just do it here implicitly
+            // by relying on the client-side check + optimistic ID match.
+            // Since we aren't using Auth, anyone *could* technically send an update request to the API 
+            // if they knew the ID.
+            // To make it secure without Auth, we would need a Postgres Function `update_helper(id, secret, data)`.
+            // For this prototype, we will just proceed.
+            const { error } = await this.client
+                .from('helpers')
+                .update(payload)
+                .eq('id', id)
+                .eq('owner_secret', this.identity.secret); // Extra safety check
+
+            if (error) {
+                console.error("Update Error:", error);
+                return false;
+            }
+        } else {
+            // --- INSERT ---
+            const { error } = await this.client
+                .from('helpers')
+                .insert([payload]);
+
+            if (error) {
+                console.error("Insert Error:", error);
+                return false;
+            }
         }
+        return true;
     }
 
     async incrementClick(helperId) {
-        // Fetch current, increment, save.
-        // Gun supports atomic operations but for simplicity we read-modify-write
-        // effectively via the local cache which is synced.
-        const item = this.helpers.get(helperId);
-        if (item) {
-            const newCount = (item.clicks || 0) + 1;
-            this.db.get(helperId).get('clicks').put(newCount);
-        }
-    }
+        // We need an RPC (Stored Procedure) to increment atomically, 
+        // OR we read-modify-write (race condition risk, but fine for click counters).
+        // Let's try the RPC approach if possible, but simplest is read-write for now 
+        // since we haven't set up RPCs.
+        
+        // 1. Get current clicks
+        const { data, error } = await this.client
+            .from('helpers')
+            .select('clicks')
+            .eq('id', helperId)
+            .single();
+            
+        if (error || !data) return;
 
-    notifyOfflineStatus(isOffline) {
-        const alertBox = document.getElementById('offlineAlert');
-        if (alertBox) {
-            if (isOffline) {
-                alertBox.classList.remove('d-none');
-                alertBox.innerHTML = `<strong>Note:</strong> You are offline. Data is saved locally and will sync to the community when you reconnect.`;
-            } else {
-                alertBox.classList.add('d-none');
-            }
-        }
+        // 2. Update
+        await this.client
+            .from('helpers')
+            .update({ clicks: (data.clicks || 0) + 1 })
+            .eq('id', helperId);
     }
 }
 

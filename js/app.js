@@ -255,8 +255,11 @@ function renderHelpers(helpers) {
             ? `<span class="distance-badge"><i class="fas fa-map-marker-alt"></i> ${helper.distance.toFixed(1)} km</span>` 
             : '';
 
-        // Edit Button Logic
-        const isMine = helper.publicKey === myPubKey;
+        // Edit Button Logic (Supabase Version)
+        // We check if the record's secret matches our local secret
+        const mySecret = appStorage.getPublicKey(); // storage.js returns secret for this method now
+        const isMine = helper.owner_secret === mySecret;
+        
         const editBtn = isMine 
             ? `<button class="btn btn-sm btn-outline-secondary ms-auto" onclick="openEditModal('${helper.id}')"><i class="fas fa-edit"></i> Edit</button>`
             : '';
