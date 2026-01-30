@@ -40,9 +40,12 @@ async function detectRegionAndPricing() {
     }
 }
 
+let standardMonthlyCost = 120; // Default
+
 function setCurrency(symbol, monthly, equip, rate = 1) {
     currencySymbol = symbol;
     exchangeRate = rate;
+    standardMonthlyCost = monthly;
     
     // Update Inputs
     document.getElementById('monthlyCost').value = monthly;
@@ -50,6 +53,46 @@ function setCurrency(symbol, monthly, equip, rate = 1) {
     
     // Update Labels
     document.querySelectorAll('.currency-label').forEach(el => el.innerText = symbol);
+}
+
+function handleCardClick(event, text) {
+    // Ignore clicks on buttons/links
+    if (event.target.closest('button') || event.target.closest('a')) return;
+
+    // 1. Parse price from text (e.g. $20, R300, 20)
+    // We look for numbers. If currency symbol matches, great.
+    // Simple regex for first number found
+    const match = text.match(/(\d+(?:\.\d+)?)/);
+    if (!match) return;
+    
+    let amount = parseFloat(match[1]);
+    
+    // If text had '$' but we are in 'R' mode, we need to convert the found amount?
+    // `localizeCurrency` converts the DISPLAY text.
+    // But the `text` passed here is the RAW text (from helper.package).
+    // If raw text says "$10" and we are in ZA (Rate 18):
+    // We want to add R180 to the base R900.
+    
+    // Check if raw text contains '$'
+    if (text.includes('$') && exchangeRate !== 1) {
+        amount = amount * exchangeRate;
+    }
+
+    // 2. Update Calculator
+    // New Total = Standard Base + Helper Fee
+    const newTotal = standardMonthlyCost + amount;
+    
+    const input = document.getElementById('monthlyCost');
+    input.value = newTotal.toFixed(2);
+    
+    // 3. Trigger Recalc
+    calculateCost();
+    
+    // 4. Feedback (Highlight Calculator)
+    const calcSection = document.getElementById('calculator');
+    calcSection.scrollIntoView({ behavior: 'smooth' });
+    input.classList.add('bg-warning'); // Flash effect
+    setTimeout(() => input.classList.remove('bg-warning'), 500);
 }
 
 function localizeCurrency(text) {
@@ -309,7 +352,7 @@ function renderHelpers(helpers) {
         const card = document.createElement('div');
         card.className = 'col-md-6 col-lg-4';
         card.innerHTML = `
-            <div class="card helper-card shadow-sm h-100">
+            <div class="card helper-card shadow-sm h-100" style="cursor: pointer;" onclick="handleCardClick(event, '${escapeHtml(helper.package || '')}')">
                 <div class="card-header d-flex align-items-center position-relative">
                     <div class="avatar-placeholder"><i class="fas fa-user"></i></div>
                     <div class="text-truncate flex-grow-1">
@@ -490,7 +533,7 @@ function escapeHtml(text) {
 
 function linkify(text) {
     if (!text) return "";
-    const urlRegex = /(https?:\[^\s]+)/g;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
     const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
     return text
         .replace(urlRegex, '<a href="$1" target="_blank">$1</a>')
