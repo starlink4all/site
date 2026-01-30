@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starlink4All - Democratize the Internet</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#"><i class="fas fa-satellite-dish me-2"></i>Starlink4All</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="#helpers">Find Help</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#calculator">Cost Calculator</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#guide">How to Order</a></li>
+                    <li class="nav-item ms-lg-3"><a class="btn btn-primary btn-sm" href="#join" data-bs-toggle="modal" data-bs-target="#joinModal">I Can Help</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="bg-primary text-white text-center py-5 hero-section">
+        <div class="container">
+            <h1 class="display-4 fw-bold">Share Starlink in Your Community</h1>
+            <p class="lead mb-4">Connect with neighbors to share high-speed satellite internet. Split costs, stay connected, and bring reliable internet to everyone.</p>
+            <div class="d-flex justify-content-center gap-3">
+                <a href="#helpers" class="btn btn-light btn-lg">Find Help Near Me</a>
+                <button class="btn btn-outline-light btn-lg" data-bs-toggle="modal" data-bs-target="#joinModal">I Can Help</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Helpers Section -->
+    <section id="helpers" class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Community Helpers</h2>
+            
+            <!-- Offline Alert -->
+            <div id="offlineAlert" class="alert alert-warning alert-dismissible fade show d-none" role="alert">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Cloud Storage Offline:</strong> Unable to reach the global list. Showing local/cached data only. Changes may not save globally.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <div class="row justify-content-center mb-3">
+                <div class="col-md-6 text-center">
+                    <button id="locateMeBtn" class="btn btn-info text-white"><i class="fas fa-location-arrow me-2"></i>See Who's Near Me</button>
+                    <p class="text-muted small mt-2" id="locationStatus">Click to sort by distance.</p>
+                </div>
+            </div>
+            
+            <div id="helpersList" class="row g-4">
+                <!-- Helper cards will be injected here via JS -->
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cost Calculator -->
+    <section id="calculator" class="py-5 bg-light">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-dark text-white">
+                            <h3 class="h5 mb-0"><i class="fas fa-calculator me-2"></i>Cost Split Calculator</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="monthlyCost" class="form-label">Monthly Cost ($)</label>
+                                    <input type="number" class="form-control" id="monthlyCost" value="120">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="equipCost" class="form-label">Equipment Cost ($)</label>
+                                    <input type="number" class="form-control" id="equipCost" value="599">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="totalSpeed" class="form-label">Speed (Mbps)</label>
+                                    <input type="number" class="form-control" id="totalSpeed" value="200">
+                                </div>
+                                <div class="col-12">
+                                    <label for="numUsers" class="form-label">Number of People/Households Sharing: <span id="numUsersDisplay" class="fw-bold text-primary">4</span></label>
+                                    <input type="range" class="form-range" id="numUsers" min="1" max="20" value="4">
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row text-center">
+                                <div class="col-md-3 mb-3 mb-md-0">
+                                    <h5 class="text-muted small mb-1">Monthly / Person</h5>
+                                    <h3 class="text-success fw-bold" id="monthlyResult">$30.00</h3>
+                                </div>
+                                <div class="col-md-3 mb-3 mb-md-0">
+                                    <h5 class="text-muted small mb-1">Equipment Share</h5>
+                                    <h3 class="text-dark fw-bold" id="equipResult">$149.75</h3>
+                                </div>
+                                <div class="col-md-3 mb-3 mb-md-0">
+                                    <h5 class="text-muted small mb-1">Est. Min Speed / User</h5>
+                                    <h3 class="text-info fw-bold" id="speedResult">50 Mbps</h3>
+                                </div>
+                                <div class="col-md-3">
+                                    <h5 class="text-muted small mb-1">You Save</h5>
+                                    <h3 class="text-primary fw-bold" id="saveResult">75%</h3>
+                                </div>
+                            </div>
+                            <div class="text-center mt-3">
+                                <p class="text-muted small mb-0">Speed varies based on usage. Min = All users downloading. Max = Others idle.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Guide Section -->
+    <section id="guide" class="py-5">
+        <div class="container">
+            <h2 class="text-center mb-4">Getting Started with Starlink</h2>
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h3>1. Order the Kit</h3>
+                    <p>Visit the official Starlink website to check availability in your area and order your hardware kit.</p>
+                    <a href="https://www.starlink.com/" target="_blank" class="btn btn-outline-primary">Visit Starlink.com <i class="fas fa-external-link-alt ms-1"></i></a>
+                </div>
+                <div class="col-md-6 mt-4 mt-md-0">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><i class="fas fa-check text-success me-2"></i><strong>Unbox:</strong> Includes Dish, Router, and Cables.</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success me-2"></i><strong>Install:</strong> Point the dish at the sky (clear view).</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success me-2"></i><strong>Connect:</strong> Plug it in and join the WiFi.</li>
+                        <li class="list-group-item"><i class="fas fa-users text-primary me-2"></i><strong>Share:</strong> Use this site to find neighbors to split the bill!</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4 text-center">
+        <div class="container">
+            <p class="mb-0">Starlink4All - A Community Initiative</p>
+            <small class="text-white-50">Not affiliated with SpaceX / Starlink.</small>
+        </div>
+    </footer>
+
+    <!-- Join Modal (I Can Help) -->
+    <div class="modal fade" id="joinModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">I Can Help / Share</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="helperForm">
+                        <input type="hidden" id="editIndex" value="-1">
+                        <div class="mb-3">
+                            <label for="helperName" class="form-label">Name / Community Name</label>
+                            <input type="text" class="form-control" id="helperName" required placeholder="e.g., John D. or Building 4A">
+                        </div>
+                        <div class="mb-3">
+                            <label for="helperQual" class="form-label">Qualifications</label>
+                            <textarea class="form-control" id="helperQual" rows="1" placeholder="e.g. Network Engineer, IT Support, Tech Savvy"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="helperContact" class="form-label">Contact Details</label>
+                            <textarea class="form-control" id="helperContact" rows="2" required placeholder="Email, Phone, or Social Media handle"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="helperPackage" class="form-label">Packages / Offer</label>
+                            <textarea class="form-control" id="helperPackage" rows="2" placeholder="e.g., 2 hours for $1, Unlimited for $15/mo..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <div class="input-group">
+                                <button class="btn btn-outline-secondary" type="button" id="geoLocateBtn"><i class="fas fa-map-marker-alt"></i> Auto-Detect</button>
+                                <input type="text" class="form-control" id="helperLatLong" placeholder="Lat, Long" required readonly>
+                            </div>
+                            <div class="form-text">We need your location to show you to nearby people.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveHelperBtn">Post My Offer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

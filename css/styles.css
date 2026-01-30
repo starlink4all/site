@@ -1,0 +1,72 @@
+/* Starlink4All Custom Styles */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    scroll-behavior: smooth;
+}
+
+.hero-section {
+    background: linear-gradient(135deg, #0b3d91 0%, #1e5bb6 100%); /* Satellite blue */
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+}
+
+.card {
+    border: none;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.helper-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    position: relative;
+    overflow: visible;
+    margin-top: 15px; /* Add spacing so badge doesn't overlap previous element */
+}
+
+.helper-card .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    font-weight: bold;
+}
+
+.helper-card .distance-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(40, 167, 69, 1);
+    color: white;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 10;
+    white-space: nowrap;
+}
+
+.avatar-placeholder {
+    width: 50px;
+    height: 50px;
+    background-color: #e9ecef;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #6c757d;
+    margin-right: 15px;
+}
+
+section {
+    scroll-margin-top: 70px; /* Offset for fixed navbar if we had one, or just breathing room */
+}
+
+/* Make modal form nicer */
+.form-label {
+    font-weight: 500;
+}
