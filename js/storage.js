@@ -107,13 +107,13 @@ class AppStorage {
         return list;
     }
 
-    async saveHelper(helper, index = -1) {
+    async saveHelper(helper, id = null) {
         try {
-            const id = (index !== -1 && helper.id) ? helper.id : crypto.randomUUID();
+            const entryId = id || crypto.randomUUID();
             
             // Prepare object
             const entry = {
-                id: id,
+                id: entryId,
                 name: helper.name,
                 qualifications: helper.qualifications || "",
                 contact: helper.contact,
@@ -127,10 +127,10 @@ class AppStorage {
 
             // Save to Gun (put)
             // We use the ID as the key in the set
-            this.db.get(id).put(entry);
+            this.db.get(entryId).put(entry);
             
             // Optimistic update for local UI
-            this.helpers.set(id, entry);
+            this.helpers.set(entryId, entry);
             
             return true;
         } catch (e) {

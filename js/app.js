@@ -60,10 +60,9 @@ function setupEventListeners() {
     const joinModal = document.getElementById('joinModal');
     joinModal.addEventListener('show.bs.modal', (event) => {
         // Only reset if we are NOT clicking an "Edit" button
-        // The edit button handling is done in renderHelpers -> editHelper function
         if (!event.relatedTarget || !event.relatedTarget.dataset.edit) {
              document.getElementById('helperForm').reset();
-             document.getElementById('editIndex').value = "-1";
+             document.getElementById('editId').value = "";
              document.getElementById('saveHelperBtn').innerText = "Post My Offer";
              document.querySelector('#joinModal .modal-title').innerText = "I Can Help / Share";
         }
@@ -243,15 +242,15 @@ function renderHelpers(helpers) {
         // Edit Button Logic
         const isMine = helper.publicKey === myPubKey;
         const editBtn = isMine 
-            ? `<button class="btn btn-sm btn-outline-secondary ms-auto" onclick="openEditModal(${index})"><i class="fas fa-edit"></i> Edit</button>`
+            ? `<button class="btn btn-sm btn-outline-secondary ms-auto" onclick="openEditModal('${helper.id}')"><i class="fas fa-edit"></i> Edit</button>`
             : '';
 
         // Unique ID for this card's collapse
         const collapseId = `contact-${helper.id || index}`;
 
-        // Qual badge
-        const qualBadge = helper.qualifications 
-            ? `<div class="mb-2"><span class="badge bg-info text-dark"><i class="fas fa-certificate me-1"></i>${escapeHtml(helper.qualifications)}</span></div>` 
+        // Qual Section
+        const qualSection = helper.qualifications 
+            ? `<hr><h6 class="card-subtitle mb-2 text-muted">Qualifications</h6><p class="card-text">${escapeHtml(helper.qualifications)}</p>` 
             : '';
 
         const card = document.createElement('div');
@@ -267,7 +266,6 @@ function renderHelpers(helpers) {
                     ${editBtn}
                 </div>
                 <div class="card-body">
-                    ${qualBadge}
                     <h6 class="card-subtitle mb-2 text-muted">Contact</h6>
                     
                     <!-- Fold-out Contact Logic -->
@@ -281,6 +279,8 @@ function renderHelpers(helpers) {
                             <p class="card-text small mb-0">${linkify(escapeHtml(helper.contact))}</p>
                         </div>
                     </div>
+
+                    ${qualSection}
 
                     <hr>
                     <h6 class="card-subtitle mb-2 text-muted">Package / Offer</h6>
@@ -305,7 +305,6 @@ window.revealContact = (btn, helperId, collapseId) => {
     const content = document.getElementById(collapseId);
     if (content) {
         content.classList.remove('d-none');
-        // Add a nice fade-in animation class if desired, but d-none toggle works for now
     }
 
     // 3. Increment View Count in UI immediately
@@ -326,9 +325,9 @@ window.recordClick = (id) => {
     appStorage.incrementClick(id);
 };
 
-window.openEditModal = async (index) => {
+window.openEditModal = async (id) => {
     const helpers = await appStorage.getHelpers();
-    const helper = helpers[index];
+    const helper = helpers.find(h => h.id === id);
     if (!helper) return;
 
     document.getElementById('helperName').value = helper.name;
@@ -336,7 +335,7 @@ window.openEditModal = async (index) => {
     document.getElementById('helperContact').value = helper.contact;
     document.getElementById('helperPackage').value = helper.package;
     document.getElementById('helperLatLong').value = `${helper.lat}, ${helper.lng}`;
-    document.getElementById('editIndex').value = index;
+    document.getElementById('editId').value = id;
 
     // Change Modal Title/Btn
     document.getElementById('saveHelperBtn').innerText = "Update Offer";
@@ -356,7 +355,7 @@ async function handleSaveHelper() {
     const contact = document.getElementById('helperContact').value;
     const pack = document.getElementById('helperPackage').value;
     const latLong = document.getElementById('helperLatLong').value;
-    const editIndex = parseInt(document.getElementById('editIndex').value);
+    const editId = document.getElementById('editId').value;
 
     if (!name || !contact || !latLong) {
         alert("Please fill in all required fields (Name, Contact, Location)");
@@ -383,7 +382,8 @@ async function handleSaveHelper() {
     btn.innerText = "Saving...";
     btn.disabled = true;
 
-    const success = await appStorage.saveHelper(newHelper, editIndex);
+    // Pass ID directly, empty string means new
+    const success = await appStorage.saveHelper(newHelper, editId || null);
 
     if (success) {
         // Close modal
@@ -396,9 +396,9 @@ async function handleSaveHelper() {
         
         // Refresh list
         refreshHelpersList();
-        alert(editIndex === -1 ? "Offer Posted!" : "Offer Updated!");
+        alert(!editId ? "Offer Posted!" : "Offer Updated!");
     } else {
-        alert("There was an error saving your profile. Please try again.");
+        alert("Error saving profile. Please check console/network.");
     }
 
     btn.innerText = originalText;
@@ -425,20 +425,19 @@ function deg2rad(deg) {
 
 function escapeHtml(text) {
     if (!text) return "";
-    return text.replace(/[&<>"']/g, function(m) {
+    return text.replace(/[&<>"]/g, function(m) {
         return {
             '&': '&amp;',
             '<': '&lt;',
             '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
+            '"': '&quot;'
         }[m];
     });
 }
 
 function linkify(text) {
     if (!text) return "";
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?:\[^\s]+)/g;
     const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
     return text
         .replace(urlRegex, '<a href="$1" target="_blank">$1</a>')
