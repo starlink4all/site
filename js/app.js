@@ -422,14 +422,20 @@ window.recordClick = (id) => {
 };
 
 window.openEditModal = async (id) => {
+    console.log("Opening edit modal for ID:", id);
     const helpers = await appStorage.getHelpers();
     const helper = helpers.find(h => h.id === id);
-    if (!helper) return;
+    
+    if (!helper) {
+        console.error("Helper not found in storage for ID:", id);
+        return;
+    }
+    console.log("Found helper data:", helper);
 
-    document.getElementById('helperName').value = helper.name;
-    document.getElementById('helperQual').value = helper.qualifications || '';
-    document.getElementById('helperContact').value = helper.contact;
-    document.getElementById('helperPackage').value = helper.package;
+    document.getElementById('helperName').value = helper.name || "";
+    document.getElementById('helperQual').value = helper.qualifications || "";
+    document.getElementById('helperContact').value = helper.contact || "";
+    document.getElementById('helperPackage').value = helper.package || "";
     document.getElementById('helperLatLong').value = `${helper.lat}, ${helper.lng}`;
     document.getElementById('editId').value = id;
 
@@ -438,10 +444,12 @@ window.openEditModal = async (id) => {
     document.querySelector('#joinModal .modal-title').innerText = "Edit My Offer";
 
     // Show Modal
-    const modal = new bootstrap.Modal(document.getElementById('joinModal'));
+    const modalEl = document.getElementById('joinModal');
+    // Set the dataset BEFORE showing, so the 'show.bs.modal' listener knows to skip reset
+    modalEl.dataset.edit = "true";
+    
+    const modal = new bootstrap.Modal(modalEl);
     modal.show();
-    // Tag the modal so the reset listener knows not to wipe it immediately
-    document.getElementById('joinModal').dataset.edit = "true";
 };
 
 
